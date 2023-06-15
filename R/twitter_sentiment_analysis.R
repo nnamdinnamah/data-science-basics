@@ -21,6 +21,7 @@ library(stats)
 library(datasets)
 library(prediction)
 library(ROCR)
+library(wordcloud2)
 
 ## Store api keys
 api_key <- 'aGkJhTzIJVfVzH26EAT09yvem'
@@ -64,13 +65,16 @@ tdm<-TermDocumentMatrix(cleanset)
 tdm<-as.matrix(tdm)
 tdm[1:10,5:10]
 
+jpeg(file="R/sentiment_analysis__bar_plot1.jpeg")
 #Preprocessing graphs
 ##barplot
 w<-rowSums(tdm)
 w<-subset(w,w>=25)
 barplot(w,las=2, col=rainbow(50) )
+dev.off()
 
 ###wordcloud
+jpeg(file="R/sentiment_analysis__word_cloud1.jpeg")
 w<-sort(rosums(tdm),decreasing=TRUE)
 set.seed(222)
 wordcloud(word=names(w),
@@ -81,7 +85,7 @@ min.freq=5,
 colors=brewer.pal(8,'Dark2'),
 scale=c(5,0.3),
 rot.per=0.7)
-library(wordcloud2)
+dev.off()
 
 w<-data.frame(names(w),w)
 colnames(w)<-c('word','freq')
@@ -96,6 +100,7 @@ w[30:40,] %>%
 arrange(freq)
 
 #Sentiment score
+jpeg(file="R/sentiment_analysis__bar_plot2.jpeg")
 stweets <-iconv(tweets$text, to="utf-8-mac")
 s<-get_nrc_sentiment(stweets)
 name_list<-names(s)
@@ -104,9 +109,10 @@ table(tweets$rating)
 barplot(colSums(s),
 col=rainbow(10),
 ylab='Count',
-main="BLM sentiment Score",
+main="Spotify sentiment Score",
 names.arg=c(name_list),
 beside=TRUE)
+dev.off()
 
 
 #Naive Bayes Model
@@ -155,18 +161,25 @@ model <- naiveBayes(xTrain, yTrain)
 ##look at confusion matrix
 table(predict(model, xTest), yTest)
 probs <- predict(model, xTest, type="raw")
+
+jpeg(file="R/sentiment_analysis__histogram1.jpeg")
 qplot(x=probs[, "Positive"], geom="histogram")
+dev.off()
 
 ##Plot ROC curve
+jpeg(file="R/sentiment_analysis__ROC.jpeg")
 pred <- prediction(probs[, "Positive"], yTest)
 perf_nb <- performance(pred, measure='tpr', x.measure='fpr')
 plot(perf_nb)
+dev.off()
 
 ##Print ROC
 auc_ROCR <- performance(pred, measure = "auc")
 auc_ROCR <- auc_ROCR@y.values[[1]]
 
 ##Plot calibration | note overconfidence
+
+jpeg(file="R/sentiment_analysis__calibration_plot.jpeg")
 calib<-data.frame(predicted=probs[, "Positive"], actual=yTest) %>%
 group_by(predicted=round(predicted*10)/10) %>%
 summarize(num=n(), actual=mean(actual == "Positive"))
@@ -175,6 +188,7 @@ geom_point() +
 geom_abline(a=1, b=0, linetype=2) +
 scale_x_continuous(labels=scales::percent, lim=c(0,1)) +
 scale_y_continuous(labels=scales::percent, lim=c(0,1))
+dev.off()
 
 # install.packages('sparklyr')
 # Kmeans clustering
@@ -192,6 +206,7 @@ sspark<-sspark[ , !(names(sspark) %in% drops)]
 
 
 ##Create Euclidean distance
+jpeg(file="R/sentiment_analysis__kmeans.jpeg")
 distance <- get_dist(sspark)
 fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 
@@ -208,8 +223,7 @@ p3 <- fviz_cluster(k4, geom = "point", data = sspark) + ggtitle("k = 4")
 p4 <- fviz_cluster(k5, geom = "point", data = sspark) + ggtitle("k = 5")
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 fviz_nbclust(sspark, kmeans, method = "silhouette")
-
-
+dev.off()
 
 tweets_tbl <- sdf_copy_to(sc, sspark, name = "tweets_tbl", overwrite = TRUE)
 partitions <- tweets_tbl %>%
