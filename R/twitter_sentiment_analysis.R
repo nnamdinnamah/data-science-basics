@@ -12,6 +12,15 @@ library(jsonlite)
 library(tidyselect)
 library(tm)
 library(pacman)
+library(wordcloud)
+library(RTextTools)
+library(e1071)
+library(caret)
+library(syuzhet)
+library(stats)
+library(datasets)
+library(prediction)
+library(ROCR)
 
 ## Store api keys
 api_key <- 'aGkJhTzIJVfVzH26EAT09yvem'
@@ -31,8 +40,7 @@ get_token()
 
 ##Search for up to 10,000 (non-retweeted+retweeted) tweets containing the blm hashtag
 df<-search_tweets(
-"BLM,blacklivesmatter,
-BlackLivesMatter",
+"Spotify,spotify",
 n=1000,
 timeout= 86400,
 lang="en"
@@ -49,7 +57,7 @@ cleanset<-tm_map(corpus,removeWords,stopwords('english'))
 inspect(cleanset[1:5])
 removeURL<-function(x) gsub('http[[:alnum:]]*','', x)
 cleanset<-tm_map(cleanset,content_transformer(removeURL))
-cleanset<-tm_map(cleanset,removeWords,c('blm','blacklivesmatter'))
+cleanset<-tm_map(cleanset,removeWords,c('Spotify','spotify'))
 cleanset<-tm_map(cleanset,stripWhitespace)
 inspect(cleanset[1:5])
 tdm<-TermDocumentMatrix(cleanset)
@@ -61,9 +69,8 @@ tdm[1:10,5:10]
 w<-rowSums(tdm)
 w<-subset(w,w>=25)
 barplot(w,las=2, col=rainbow(50) )
-###wordcloud
-library(wordcloud)
 
+###wordcloud
 w<-sort(rosums(tdm),decreasing=TRUE)
 set.seed(222)
 wordcloud(word=names(w),
@@ -86,7 +93,7 @@ minSize=1)
 wordfeqsum<-w[20:30,]
 wordfeqsum
 w[30:40,] %>%
-arrange(freq,desc())
+arrange(freq)
 
 #Sentiment score
 stweets <-iconv(tweets$text, to="utf-8-mac")
@@ -102,19 +109,7 @@ names.arg=c(name_list),
 beside=TRUE)
 
 
-install.packages('ROCR')
 #Naive Bayes Model
-library(tm)
-library(RTextTools)
-library(e1071)
-library(dplyr)
-library(caret)
-library(syuzhet)
-library(stats)
-library(datasets)
-library(prediction)
-library(ROCR)
-
 ## Create random samples
 set.seed(123)
 train_index <- sample(900, 700)
@@ -132,9 +127,9 @@ tolower = TRUE,
 removeNumbers = TRUE,
 stopwords = TRUE,
 removePunctuation = TRUE,
-
 stemming = TRUE
 ))
+
 test_dtm <- DocumentTermMatrix(test_corpus, control = list(
 tolower = TRUE,
 removeNumbers = TRUE,
@@ -143,6 +138,7 @@ removePunctuation = TRUE,
 stemming = TRUE
 ))
 train_dtm
+
 ##create function to convert counts to a factor
 convert_counts <- function(x) {
 x <- ifelse(x > 0, "Yes", "No")
@@ -187,7 +183,7 @@ library(gridExtra)
 library(sparklyr)
 
 #Spark connetion data
-spark_install()
+# spark_install()
 sc <- spark_connect(master = "local")
 sspark<-s
 sspark$label <- as.numeric(ifelse(s$positive >= s$negative,1,0))
@@ -224,4 +220,5 @@ nb_model <- tweets_train %>%
 ml_naive_bayes(Species ~ .)
 pred <- ml_predict(nb_model, tweets_test)
 ml<-ml_multiclass_classification_evaluator(pred)
-spark_disconnect(sc)
+ml
+# spark_disconnect(sc)
