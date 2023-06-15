@@ -186,6 +186,15 @@ library(factoextra)
 library(gridExtra)
 library(sparklyr)
 
+#Spark connetion data
+spark_install()
+sc <- spark_connect(master = "local")
+sspark<-s
+sspark$label <- as.numeric(ifelse(s$positive >= s$negative,1,0))
+drops <- c("negative","positive")
+sspark<-sspark[ , !(names(sspark) %in% drops)]
+
+
 ##Create Euclidean distance
 distance <- get_dist(sspark)
 fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
@@ -204,12 +213,8 @@ p4 <- fviz_cluster(k5, geom = "point", data = sspark) + ggtitle("k = 5")
 grid.arrange(p1, p2, p3, p4, nrow = 2)
 fviz_nbclust(sspark, kmeans, method = "silhouette")
 
-#Spark connetion data
-sc <- spark_connect(master = "local")
-sspark<-s
-sspark$label <- as.numeric(ifelse(s$positive >= s$negative,1,0))
-drops <- c("negative","positive")
-sspark<-sspark[ , !(names(sspark) %in% drops)]
+
+
 tweets_tbl <- sdf_copy_to(sc, sspark, name = "tweets_tbl", overwrite = TRUE)
 partitions <- tweets_tbl %>%
 sdf_random_split(training = 0.7, test = 0.3, seed = 1111)
